@@ -1,0 +1,8 @@
+Strategy,Aggression,Country,AssetType,Account,TraderId,Manifest
+*,*,*,*,*,*,BASE
+VWAP,*,*,*,*,*,VWAP
+TWAP,*,*,*,*,*,TWAP
+VWAP,A,*,*,*,*,VWAP_AGGRESSIVE
+VWAP,M,*,*,*,*,VWAP_MODERATE
+VWAP,P,*,*,*,*,VWAP_PASSIVE
+VWAP,P,*,*,CLIENTXYZ,*,VWAP_PASSIVE_XYZ

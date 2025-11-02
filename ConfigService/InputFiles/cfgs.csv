@@ -1,0 +1,7 @@
+Manifest,ParamSection,ParamKey,DataType,Value
+BASE,CloseAuction,SendTimeOffsetSeconds,int,60
+VWAP,CloseAuction,SendTimeOffsetSeconds,int,600
+VWAP_PASSIVE,CloseAuction,SendTimeOffsetSeconds,int,900
+VWAP_PASSIVE_XYZ,CloseAuction,SendTimeOffsetSeconds,int,2000
+VWAP_MODERATE,Schedule,EndTimeOffsetSeconds,int,15
+VWAP_AGGRESSIVE,Schedule,EndTimeOffsetSeconds,int,5

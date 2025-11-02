@@ -215,6 +215,16 @@ public class ConfigService
     {
         Trace.WriteLine($"Order: Strategy={order.Strategy}, Aggression={order.Aggression}, Country={order.Country}, AssetType={order.AssetType}, Account={order.Account}, TraderId={order.TraderId}");
     }
+
+    private void printManifests(Dictionary<string, int> manifests)
+    {
+
+        foreach (var kv in manifests)
+        {
+            Trace.WriteLine($"Manifest: {kv.Key}, Specificity Score: {kv.Value}");
+        }      
+    }
+
     // Get applicable manifests for the given order parameters.
     // Returns dictionary of manifest key to specificity score.
     // An empty dictionary indicates no applicable manifests.
@@ -294,6 +304,7 @@ public class ConfigService
                     if (row.TryGetValue("DataType", out var dtObj) && dtObj?.ToString() == type.ToUpper()
                        && row.TryGetValue("Value", out var valueObj) && valueObj != null)
                     {
+                        Trace.WriteLine($"Found value '{valueObj}' for ParamSection='{paramSection}', ParamKey='{paramKey}', DataType='{type}' in Manifest='{selectedManifest}'");
                         return valueObj.ToString() ?? "";
                     }
                 }
@@ -312,12 +323,14 @@ public class ConfigService
     // Get int, decimal, string config values for the given order and paramSection/paramKey.
     // Uses the most specific applicable manifest for the order.
     // Returns defaultValue if not found or conversion fails.
-    public int getIntConfig(IOrder order, string paramSection, string paramKey, int defaultValue)
+    public int getIntConfig(in IOrder order, string paramSection, string paramKey, int defaultValue)
     {
         printOrder(order);
         Dictionary<string, int> manifests = GetApplicableManifests(order);
-        //string selectedManifest = SelectManifest(manifests);
         if (manifests.Count <= 0) return defaultValue;
+
+        Trace.WriteLine("Applicable Manifests:");
+        printManifests(manifests);
 
         string result = GetConfigValue(manifests, paramSection, paramKey, "int");
 
@@ -330,11 +343,10 @@ public class ConfigService
         }
         return defaultValue;
     }
-    public decimal getDecimalConfig(IOrder order, string paramSection, string paramKey, decimal defaultValue)
+    public decimal getDecimalConfig(in IOrder order, string paramSection, string paramKey, decimal defaultValue)
     {
         printOrder(order);
         Dictionary<string, int> manifests = GetApplicableManifests(order);
-        //string selectedManifest = SelectManifest(manifests);
         if (manifests.Count <= 0) return defaultValue;
 
         string result = GetConfigValue(manifests, paramSection, paramKey, "decimal");
@@ -347,7 +359,7 @@ public class ConfigService
         }
         return defaultValue;
     }
-    public string getStringConfig(IOrder order, string paramSection, string paramKey, string defaultValue)
+    public string getStringConfig(in IOrder order, string paramSection, string paramKey, string defaultValue)
     {
         printOrder(order);
         Dictionary<string, int> manifests = GetApplicableManifests(order);
@@ -400,23 +412,28 @@ public class Program
         order.Aggression = "M";
         intCfg = configService.getIntConfig(order, "CloseAuction", "SendTimeOffsetSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
+        Trace.WriteLine("----");
         order.Aggression = "P";
         intCfg = configService.getIntConfig(order, "CloseAuction", "SendTimeOffsetSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
+        Trace.WriteLine("----");
         order.Aggression = "A";
         intCfg = configService.getIntConfig(order, "CloseAuction", "SendTimeOffsetSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
+        Trace.WriteLine("----");
         order.Aggression = null;
         intCfg = configService.getIntConfig(order, "CloseAuction", "SendTimeOffsetSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
+        Trace.WriteLine("----");
         order.Aggression = "P";
         order.Account = "CLIENTXYZ";
         intCfg = configService.getIntConfig(order, "CloseAuction", "SendTimeOffsetSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
+        Trace.WriteLine("----");
         order.Strategy = "TWAP";
         intCfg = configService.getIntConfig(order, "CloseAuction", "SendTimeOffsetSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
-
+        Trace.WriteLine("----");
         //2.getIntConfig(IOrder order, "CloseAuction", "CancelSeconds", 23400)
         //    For a VWAP order it'll return 23400 as provided default (no row exists for this Cfg)
         //    For a TWAP order it'll return 23400 as provided default (no row exists for this Cfg)
@@ -433,20 +450,25 @@ public class Program
         Trace.WriteLine("Testing getIntConfig for CloseAuction CancelSeconds:");
         intCfg = configService.getIntConfig(order, "CloseAuction", "CancelSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
+        Trace.WriteLine("----");
+        
         order.Strategy = "TWAP";
         intCfg = configService.getIntConfig(order, "CloseAuction", "CancelSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
-
+        Trace.WriteLine("----");
+        
         Trace.WriteLine("Testing getDecimalConfig for PriceLimits MaxSlippagePercent:");    
         decimal decCfg; 
         order.Strategy = "VWAP";    
         decCfg = configService.getDecimalConfig(order, "PriceLimits", "MaxSlippagePercent", 0.05M); 
         Trace.WriteLine($"Decimal Config: {decCfg}");
+        Trace.WriteLine("----");
 
         Trace.WriteLine("Testing getStringConfig for Notifications TraderEmail:");
         string strCfg;
         order.Strategy = "TWAP";
         strCfg = configService.getStringConfig(order, "Notifications", "TraderEmail", "default");
         Trace.WriteLine($"String Config: {strCfg}");
+        Trace.WriteLine("----");
     }
 }

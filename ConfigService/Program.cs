@@ -61,83 +61,12 @@ public class ConfigService
 
     // Constructor: load manifest and config files.
     // Initialize header weights.
-    
     public ConfigService(string maifestFile,string configFile)
     {
         // Load manifest and config files.  
         LoadManifestAndConfig(maifestFile, configFile);
         // Initialize header weights based on manifest headers.
         InitializeHeaderWeights();
-    }
-    // Get applicable manifests for the given order parameters.
-    // Returns dictionary of manifest key to specificity score.
-    // An empty dictionary indicates no applicable manifests.
-    public Dictionary<string,int> GetApplicableManifests(in IOrder inputOrder)
-    {
-        // Scan _manifestAndconfigsTable using the header order in _manifestHeaders.
-        // Assume all headers/values exist and match by equality or '*' wildcard.
-        var results = new Dictionary<string, int>();
-
-        // Prepare order values dictionary for easy lookup.
-        var orderValues = new Dictionary<string, string>() {
-            { "Strategy", inputOrder.Strategy?.ToUpper() ?? string.Empty},
-            { "Aggression", inputOrder.Aggression?.ToUpper() ?? string.Empty },
-            { "Country", inputOrder.Country?.ToUpper() ?? string.Empty },
-            { "AssetType", inputOrder.AssetType?.ToUpper() ?? string.Empty },
-            { "Account", inputOrder.Account?.ToUpper() ?? string.Empty },
-            { "TraderId", inputOrder.TraderId?.ToUpper() ?? string.Empty}
-        };
-
-        foreach (var kv in _manifestAndconfigsTable)
-        {
-            var row = kv.Value;
-            bool match = true;
-            int score = 0;
-            // iterate headers from _manifestHeaders and skip Manifest column
-            foreach (var header in _manifestHeaders)
-            {
-                if (header.Equals("Manifest", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                // assume value exists for header in row
-                var mv = row[header];
-                var ov = orderValues[header]; // assume header maps to a key in orderValues
-
-                if (!(mv.ToString() == "*" || mv.ToString() == ov))
-                {
-                    match = false;
-                    break;
-                }
-                // assume value exists; treat non-"*" as specific
-                if (mv.ToString() != "*")
-                {
-                    if (_headerWeights.TryGetValue(header, out var weight))
-                        score += (int)weight;
-                    // if header not recognized, ignore (no weight)
-                }
-            }
-
-            if (match)
-                results[kv.Key] = score;
-        }
-        return results;
-    }
-
-    // Initialize header weights based on manifest headers order.
-    // First header gets highest weight, last gets lowest.
-    private void InitializeHeaderWeights()
-    {
-        _headerWeights.Clear();
-
-        if (_manifestHeaders.Count == 0)
-            return;
-        int count = _manifestHeaders.Count;
-        for (int i = 0; i < count; i++)
-        {
-            // weight = (count - i) * 10  -> first header => count*10, last => 10
-            int weight = (count - i) * 10;
-            _headerWeights[_manifestHeaders[i]] = weight;
-        }
     }
 
     // Load manifest and config files into tables and merge them.
@@ -201,7 +130,7 @@ public class ConfigService
             _manifestAndconfigsTable[kv.Key] = merged;
         }
 
-        PrintTable(_manifestAndconfigsTable, _manifestHeaders.Union(_configsHeaders).ToList());
+        PrintLookupTable(_manifestAndconfigsTable, _manifestHeaders.Union(_configsHeaders).ToList());
 
     }
         // Helper to load CSV lines into table: key -> 'Manifest', value -> dictionary of column name to value.
@@ -238,8 +167,28 @@ public class ConfigService
             table[key] = row;
         }
     }
-    private void PrintTable(Dictionary<string, Dictionary<string, Object>> table, List<string> headers)
+
+    // Initialize header weights based on manifest headers order.
+    // First header gets highest weight, last gets lowest.
+    private void InitializeHeaderWeights()
     {
+        _headerWeights.Clear();
+
+        if (_manifestHeaders.Count == 0)
+            return;
+        int count = _manifestHeaders.Count;
+        for (int i = 0; i < count; i++)
+        {
+            // weight = (count - i) * 10  -> first header => count*10, last => 10
+            int weight = (count - i) * 10;
+            _headerWeights[_manifestHeaders[i]] = weight;
+        }
+    }
+    // Helper to print table for debugging.
+    // Prints CSV format to Trace.
+    private void PrintLookupTable(Dictionary<string, Dictionary<string, Object>> table, List<string> headers)
+    {
+        Trace.WriteLine("Merged Manifest and Config Lookup Table:");
         StringBuilder sb = new StringBuilder();
         sb.AppendLine(string.Join(",", headers));
         foreach (var kv in table)
@@ -262,10 +211,66 @@ public class ConfigService
         Trace.WriteLine(sb.ToString());
     }
 
+    private void printOrder(IOrder order)
+    {
+        Trace.WriteLine($"Order: Strategy={order.Strategy}, Aggression={order.Aggression}, Country={order.Country}, AssetType={order.AssetType}, Account={order.Account}, TraderId={order.TraderId}");
+    }
+    // Get applicable manifests for the given order parameters.
+    // Returns dictionary of manifest key to specificity score.
+    // An empty dictionary indicates no applicable manifests.
+    private Dictionary<string, int> GetApplicableManifests(in IOrder inputOrder)
+    {
+        // Scan _manifestAndconfigsTable using the header order in _manifestHeaders.
+        // Assume all headers/values exist and match by equality or '*' wildcard.
+        var results = new Dictionary<string, int>();
+
+        // Prepare order values dictionary for easy lookup.
+        var orderValues = new Dictionary<string, string>() {
+            { "Strategy", inputOrder.Strategy?.ToUpper() ?? string.Empty},
+            { "Aggression", inputOrder.Aggression?.ToUpper() ?? string.Empty },
+            { "Country", inputOrder.Country?.ToUpper() ?? string.Empty },
+            { "AssetType", inputOrder.AssetType?.ToUpper() ?? string.Empty },
+            { "Account", inputOrder.Account?.ToUpper() ?? string.Empty },
+            { "TraderId", inputOrder.TraderId?.ToUpper() ?? string.Empty}
+        };
+
+        foreach (var kv in _manifestAndconfigsTable)
+        {
+            var row = kv.Value;
+            bool match = true;
+            int score = 0;
+            // iterate headers from _manifestHeaders and skip Manifest column
+            foreach (var header in _manifestHeaders)
+            {
+                if (header.Equals("Manifest", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // assume value exists for header in row
+                var mv = row[header];
+                var ov = orderValues[header]; // assume header maps to a key in orderValues
+
+                if (!(mv.ToString() == "*" || mv.ToString() == ov))
+                {
+                    match = false;
+                    break;
+                }
+                // assume value exists; treat non-"*" as specific
+                if (mv.ToString() != "*")
+                {
+                    if (_headerWeights.TryGetValue(header, out var weight))
+                        score += (int)weight;
+                    // if header not recognized, ignore (no weight)
+                }
+            }
+
+            if (match)
+                results[kv.Key] = score;
+        }
+        return results;
+    }
     // Get config value for the given paramSection, paramKey, and data type from the applicable manifests.
     // Returns empty string if not found.
     // Selects the manifest with the highest specificity score.
-
     private string GetConfigValue(Dictionary<string, int> manifests, string paramSection, string paramKey, string type)
     {
         string result = "";
@@ -309,6 +314,7 @@ public class ConfigService
     // Returns defaultValue if not found or conversion fails.
     public int getIntConfig(IOrder order, string paramSection, string paramKey, int defaultValue)
     {
+        printOrder(order);
         Dictionary<string, int> manifests = GetApplicableManifests(order);
         //string selectedManifest = SelectManifest(manifests);
         if (manifests.Count <= 0) return defaultValue;
@@ -326,6 +332,7 @@ public class ConfigService
     }
     public decimal getDecimalConfig(IOrder order, string paramSection, string paramKey, decimal defaultValue)
     {
+        printOrder(order);
         Dictionary<string, int> manifests = GetApplicableManifests(order);
         //string selectedManifest = SelectManifest(manifests);
         if (manifests.Count <= 0) return defaultValue;
@@ -342,6 +349,7 @@ public class ConfigService
     }
     public string getStringConfig(IOrder order, string paramSection, string paramKey, string defaultValue)
     {
+        printOrder(order);
         Dictionary<string, int> manifests = GetApplicableManifests(order);
         //string selectedManifest = SelectManifest(manifests);
         if (manifests.Count <= 0) return defaultValue;
@@ -364,8 +372,10 @@ public class Program
     {
 
         Trace.Listeners.Add(new ConsoleTraceListener());
-        ConfigService configService = new ConfigService("InputFiles\\manifest.csv", "InputFiles\\cfgs.csv");
+        Trace.Listeners.Add(new TextWriterTraceListener("ConfigService.log"));
+        Trace.AutoFlush = true;
 
+        ConfigService configService = new ConfigService("InputFiles\\manifest.csv", "InputFiles\\cfgs.csv");
         //1.getIntConfig(IOrder order, "CloseAuction", "SendTimeOffsetSeconds", 23400)
             //For a VWAP order with aggression as M it'll return 600 (from VWAP)
             //For a VWAP order with aggression as P it'll return 900 (from VWAP_PASSIVE)
@@ -381,9 +391,10 @@ public class Program
             Country = "",
             AssetType = "", 
             Account = "",
-            TraderId = "Joe"
+            TraderId = ""
         };
 
+        Trace.WriteLine("Testing getIntConfig for CloseAuction SendTimeOffsetSeconds:");
         int intCfg;
         order.Strategy = "VWAP";
         order.Aggression = "M";
@@ -419,12 +430,23 @@ public class Program
             Account = "",
             TraderId = "Joe"
         };
-
+        Trace.WriteLine("Testing getIntConfig for CloseAuction CancelSeconds:");
         intCfg = configService.getIntConfig(order, "CloseAuction", "CancelSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
         order.Strategy = "TWAP";
         intCfg = configService.getIntConfig(order, "CloseAuction", "CancelSeconds", 23400);
         Trace.WriteLine($"Int Config: {intCfg}");
 
+        Trace.WriteLine("Testing getDecimalConfig for PriceLimits MaxSlippagePercent:");    
+        decimal decCfg; 
+        order.Strategy = "VWAP";    
+        decCfg = configService.getDecimalConfig(order, "PriceLimits", "MaxSlippagePercent", 0.05M); 
+        Trace.WriteLine($"Decimal Config: {decCfg}");
+
+        Trace.WriteLine("Testing getStringConfig for Notifications TraderEmail:");
+        string strCfg;
+        order.Strategy = "TWAP";
+        strCfg = configService.getStringConfig(order, "Notifications", "TraderEmail", "default");
+        Trace.WriteLine($"String Config: {strCfg}");
     }
 }
